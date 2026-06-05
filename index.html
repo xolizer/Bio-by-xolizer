@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>xolizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%;font-family:'Inter',sans-serif;background:#000;overflow:hidden;color:#fff;user-select:none}
+
+    #splash{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:#000;cursor:pointer;transition:opacity .5s}
+    #splash.hide{opacity:0;pointer-events:none}
+    #splash-stars{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+    .splash-content{position:relative;z-index:2;text-align:center}
+    .splash-welcome{font-size:clamp(40px,7vw,60px);font-weight:700;letter-spacing:10px;text-transform:uppercase;color:rgba(255,255,255,.15);animation:swIn 1.6s cubic-bezier(.16,1,.3,1) both;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+    @keyframes swIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.9);letter-spacing:25px}100%{opacity:1;transform:translate(-50%,-50%) scale(1);letter-spacing:10px}}
+    .splash-welcome.hide{animation:swOut .8s cubic-bezier(.16,1,.3,1) forwards}
+    @keyframes swOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1);letter-spacing:10px}100%{opacity:0;transform:translate(-50%,-50%) scale(1.1);letter-spacing:35px}}
+
+    #explosion-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:998;pointer-events:none;opacity:0}
+    #explosion-canvas.active{opacity:1}
+    .explosion-flash{position:fixed;inset:0;z-index:997;pointer-events:none;background:radial-gradient(circle at center,rgba(255,255,255,.7),rgba(200,200,255,.3) 30%,transparent 70%);opacity:0;transition:opacity .08s}
+    .explosion-flash.active{opacity:1}
+    .explosion-shockwave{position:fixed;top:50%;left:50%;width:0;height:0;border-radius:50%;z-index:996;pointer-events:none;border:2px solid rgba(255,255,255,.1);transform:translate(-50%,-50%);opacity:0}
+    .explosion-shockwave.active{animation:sw 1.2s ease-out forwards}
+    @keyframes sw{0%{width:0;height:0;opacity:.5;border-width:3px}100%{width:200vw;height:200vw;opacity:0;border-width:.5px}}
+
+    #bg-shader{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block}
+
+    #main{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.9);pointer-events:none;z-index:1;padding:16px}
+    #main.visible{opacity:1;transform:scale(1);pointer-events:auto;transition:opacity 1s cubic-bezier(.16,1,.3,1),transform 1s cubic-bezier(.16,1,.3,1)}
+
+    .card{width:420px;max-width:94vw;position:relative;border-radius:20px;background:rgba(255,255,255,.018);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,.03);padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.02);perspective:1200px;transition:transform .1s}
+    .card::before{content:'';position:absolute;inset:0;border-radius:20px;padding:1px;background:linear-gradient(135deg,rgba(255,255,255,.03),transparent 40%,transparent 60%,rgba(255,255,255,.01));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+
+    .c-el{opacity:0;transform:translateY(20px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+    #main.visible .c-el{opacity:1;transform:translateY(0)}
+    #main.visible .c-el:nth-child(1){transition-delay:.05s}
+    #main.visible .c-el:nth-child(2){transition-delay:.10s}
+    #main.visible .c-el:nth-child(3){transition-delay:.15s}
+    #main.visible .c-el:nth-child(4){transition-delay:.20s}
+    #main.visible .c-el:nth-child(5){transition-delay:.25s}
+    #main.visible .c-el:nth-child(6){transition-delay:.30s}
+
+    .top{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+    .av-wrap{position:relative;flex-shrink:0;width:76px;height:76px}
+    #vizCanvas{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);z-index:1;border-radius:50%;pointer-events:none}
+    .av-ring{position:absolute;inset:-2px;border-radius:50%;z-index:2;background:conic-gradient(from 0deg,rgba(255,255,255,.04),rgba(255,255,255,.01),rgba(255,255,255,.04));-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1.5px),#fff calc(100% - 1.5px));mask:radial-gradient(farthest-side,transparent calc(100% - 1.5px),#fff calc(100% - 1.5px));animation:rs 6s linear infinite}
+    .av-ring2{position:absolute;inset:-5px;border-radius:50%;z-index:1;background:conic-gradient(from 90deg,rgba(255,255,255,.03),transparent 40%,rgba(255,255,255,.015) 80%,transparent);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#fff calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 1px),#fff calc(100% - 1px));animation:rs 8s linear infinite reverse;opacity:.3}
+    @keyframes rs{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .av-img{position:absolute;inset:4px;z-index:3;border-radius:50%;object-fit:cover;width:calc(100% - 8px);height:calc(100% - 8px);transition:transform .4s cubic-bezier(.34,1.56,.64,1);cursor:pointer}
+    .av-img:hover{transform:scale(1.06)}
+    .av-img:active{transform:scale(.94)}
+
+    .info{flex:1;min-width:0}
+    .info .un{font-size:22px;font-weight:700;letter-spacing:-.3px;line-height:1.2;margin-bottom:2px}
+    .info .st{font-size:10.5px;color:rgba(255,255,255,.12);font-weight:300;letter-spacing:3px;text-transform:uppercase}
+    .cnt-row{display:flex;align-items:center;gap:5px;margin-top:5px}
+    .cnt-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:400;color:rgba(255,255,255,.1);padding:2px 9px;border-radius:100px;border:1px solid rgba(255,255,255,.025);background:rgba(255,255,255,.01)}
+    .cnt-badge .num{font-weight:600;color:rgba(255,255,255,.2);font-variant-numeric:tabular-nums;display:inline-flex;gap:1px}
+    .cnt-badge .num span{display:inline-block;transition:transform .15s,opacity .15s}
+    .cnt-badge .num span.pop{transform:scale(1.25);color:rgba(255,255,255,.45)}
+    .status-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:400;color:rgba(255,255,255,.08);padding:2px 9px;border-radius:100px;border:1px solid rgba(255,255,255,.025);background:rgba(255,255,255,.01)}
+    .sd-dot{width:5px;height:5px;border-radius:50%;background:#00ff88;box-shadow:0 0 8px rgba(0,255,136,.2);animation:dp 2.4s ease-in-out infinite}
+    @keyframes dp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+
+    .div{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.02),transparent);margin:0 0 18px}
+
+    .music{margin-bottom:18px}
+    .player-bar{display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:14px;background:rgba(255,255,255,.015);border:1px solid rgba(255,255,255,.025)}
+    .play-btn{flex-shrink:0;width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.03);color:rgba(255,255,255,.4);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .35s cubic-bezier(.34,1.56,.64,1);font-family:inherit}
+    .play-btn:hover{background:rgba(255,255,255,.06);color:#fff;transform:scale(1.05)}
+    .play-btn:active{transform:scale(.92)}
+    .play-btn.attention{animation:btnPulse 2s ease-in-out infinite}
+    @keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.05)}50%{box-shadow:0 0 20px 4px rgba(255,255,255,.08)}}
+    .player-center{flex:1;min-width:0}
+    .player-label{font-size:10px;font-weight:400;color:rgba(255,255,255,.12);letter-spacing:.5px;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .wave-row{display:flex;align-items:center;gap:3px;height:28px;padding:0 2px}
+    .wave-row .b{flex:1;border-radius:3px;background:rgba(255,255,255,.02);transition:height .04s ease,background .15s;min-height:2px}
+    .wave-row .b.active{background:linear-gradient(to top,rgba(255,255,255,.15),rgba(200,200,255,.3))}
+    .player-time{font-size:10px;font-weight:300;color:rgba(255,255,255,.06);flex-shrink:0;letter-spacing:.5px;min-width:36px;text-align:right;font-variant-numeric:tabular-nums}
+
+    .links{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+    .link-item{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;border-radius:10px;background:rgba(255,255,255,.01);border:1px solid rgba(255,255,255,.025);color:rgba(255,255,255,.2);text-decoration:none;font-size:11.5px;font-weight:500;transition:all .3s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden}
+    .link-item::before{content:'';position:absolute;inset:0;border-radius:10px;background:rgba(255,255,255,.02);opacity:0;transition:opacity .3s}
+    .link-item:hover{border-color:rgba(255,255,255,.05);color:#fff;transform:translateY(-1px)}
+    .link-item:hover::before{opacity:1}
+    .link-item:active{transform:translateY(0) scale(.97)}
+    .link-item .l-ic{font-size:13px;position:relative;z-index:1}
+    .link-item .l-lb{font-size:10.5px;position:relative;z-index:1}
+
+    @media(max-width:440px){.card{padding:20px}.av-wrap{width:64px;height:64px}.info .un{font-size:19px}.top{gap:12px;margin-bottom:16px}.links{gap:5px}.link-item{padding:7px 6px}.link-item .l-lb{font-size:9.5px}.player-bar{padding:9px 12px}.play-btn{width:36px;height:36px;font-size:14px}}
+    @media(max-height:650px){.card{padding:18px 20px}.top{margin-bottom:12px;gap:12px}.av-wrap{width:60px;height:60px}.info .un{font-size:17px}.music{margin-bottom:12px}.player-bar{padding:8px 12px}.div{margin-bottom:12px}.cnt-row{margin-top:3px}}
+    @media(max-height:560px){.card{padding:12px 16px}.top{margin-bottom:8px;gap:8px}.av-wrap{width:48px;height:48px}.info .un{font-size:14px}.info .st{font-size:9px}.player-bar{padding:5px 10px}.play-btn{width:28px;height:28px;font-size:11px}.wave-row{height:20px}.music{margin-bottom:8px}.div{margin-bottom:8px}.link-item{padding:5px 5px}.cnt-row{display:none}}
+  </style>
+</head>
+<body>
+
+  <section id="splash">
+    <canvas id="splash-stars"></canvas>
+    <div class="splash-content">
+      <div class="splash-welcome" id="welcomeText">Welcome</div>
+    </div>
+  </section>
+
+  <canvas id="explosion-canvas"></canvas>
+  <div class="explosion-flash" id="explosionFlash"></div>
+  <div class="explosion-shockwave" id="explosionShockwave"></div>
+
+  <canvas id="bg-shader"></canvas>
+
+  <main id="main">
+    <div class="card" id="card">
+
+      <div class="top c-el">
+        <div class="av-wrap">
+          <canvas id="vizCanvas"></canvas>
+          <div class="av-ring2"></div>
+          <div class="av-ring"></div>
+          <img class="av-img" src="image/ava.jpg" alt="xolizer" id="avatarImg">
+        </div>
+        <div class="info">
+          <div class="un">xolizer</div>
+          <div class="st">✦ producer</div>
+          <div class="cnt-row">
+            <span class="cnt-badge">👁 <span class="num" id="counterDisplay"><span>4</span><span>8</span><span>9</span></span></span>
+            <span class="status-badge"><span class="sd-dot"></span> online</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="div c-el"></div>
+
+      <div class="music c-el">
+        <div class="player-bar">
+          <button class="play-btn" id="playBtn">▶</button>
+          <div class="player-center">
+            <div class="player-label" id="trackName">CUPSIZE — семнадцать ножевых</div>
+            <div class="wave-row" id="waveRow"></div>
+          </div>
+          <span class="player-time" id="timeDisplay">--:--</span>
+        </div>
+      </div>
+
+      <div class="links c-el">
+        <a class="link-item" href="https://t.me/waquc" target="_blank" id="tgLink">
+          <span class="l-ic">✈</span>
+          <span class="l-lb">Telegram</span>
+        </a>
+        <a class="link-item" href="https://github.com/xolizer" target="_blank" id="ghLink">
+          <span class="l-ic">⌨</span>
+          <span class="l-lb">GitHub</span>
+        </a>
+        <a class="link-item" href="#" target="_blank" id="scLink">
+          <span class="l-ic">♬</span>
+          <span class="l-lb">SoundCloud</span>
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <audio id="audioPlayer" loop preload="auto"></audio>
+
+  <script>
+    // =============================================
+    //  SPLASH
+    // =============================================
+    const sc = document.getElementById('splash-stars'), sctx = sc.getContext('2d');
+    let ss=[],sa;
+    function rszS(){sc.width=innerWidth;sc.height=innerHeight}
+    class Ss{constructor(){this.reset()}reset(){this.x=Math.random()*sc.width;this.y=Math.random()*sc.height;this.size=Math.random()*2+.3;this.tw=Math.random()*6;this.sp=.005+Math.random()*.02;this.op=Math.random()*.4+.1;this.dx=(Math.random()-.5)*.15;this.dy=(Math.random()-.5)*.15}update(){this.tw+=this.sp;this.x+=this.dx;this.y+=this.dy;if(this.x<0)this.x=sc.width;if(this.x>sc.width)this.x=0;if(this.y<0)this.y=sc.height;if(this.y>sc.height)this.y=0}draw(){const a=this.op*(.5+.5*Math.sin(this.tw));sctx.beginPath();sctx.arc(this.x,this.y,this.size,0,6);sctx.fillStyle=`rgba(255,255,255,${a})`;sctx.fill();if(this.size>1.2){sctx.shadowColor=`rgba(255,255,255,${a*.2})`;sctx.shadowBlur=6;sctx.fill();sctx.shadowBlur=0}}}
+    function iSs(){const c=Math.min(200,~~(sc.width*sc.height/8000));ss=Array.from({length:c},()=>new Ss)}
+    function aSs(){sctx.clearRect(0,0,sc.width,sc.height);ss.forEach(s=>{s.update();s.draw()});sa=requestAnimationFrame(aSs)}
+    rszS();iSs();aSs();addEventListener('resize',()=>{rszS();if(ss.length)iSs()});
+
+    // Welcome → auto explosion → main
+    const welcomeEl = document.getElementById('welcomeText');
+    setTimeout(() => {
+      welcomeEl.classList.add('hide');
+      setTimeout(() => {
+        td = 1;
+        welcomeEl.style.display = 'none';
+        sp.classList.add('hide');
+        tE();
+        setTimeout(() => {
+          sp.style.display = 'none';
+          cancelAnimationFrame(sa);
+          me.classList.add('visible');
+          buildWave();
+          startLoop();
+          autoPlay();
+        }, 1400);
+      }, 800);
+    }, 2000);
+
+    // =============================================
+    //  EXPLOSION
+    // =============================================
+    const sp=document.getElementById('splash'),me=document.getElementById('main');
+    const fe=document.getElementById('explosionFlash'),se=document.getElementById('explosionShockwave');
+    const ec=document.getElementById('explosion-canvas'),ectx=ec.getContext('2d');
+    let ep=[],ea,td=!1;
+    function rszE(){ec.width=innerWidth;ec.height=innerHeight}
+    rszE();addEventListener('resize',rszE);
+    class Ep{constructor(x,y){const a=Math.random()*6,s=2+Math.random()*12;this.x=x;this.y=y;this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;this.size=1+Math.random()*4;this.life=1;this.decay=.005+Math.random()*.015;this.lit=70+Math.random()*30}
+    update(){this.x+=this.vx;this.y+=this.vy;this.vx*=.98;this.vy*=.98;this.life-=this.decay;this.size*=.997}
+    draw(){if(this.life<=0)return;ectx.globalAlpha=this.life;ectx.beginPath();ectx.arc(this.x,this.y,this.size,0,6);ectx.fillStyle=`hsl(0,0%,${this.lit}%)`;ectx.fill();ectx.shadowColor=`hsla(0,0%,${this.lit}%,${this.life*.3})`;ectx.shadowBlur=15;ectx.fill();ectx.shadowBlur=0;ectx.globalAlpha=1}}
+    function tE(){const cx=innerWidth/2,cy=innerHeight/2;ep=[];for(let i=0;i<350;i++)ep.push(new Ep(cx,cy));ec.style.opacity=1;fe.classList.add('active');se.classList.add('active');setTimeout(()=>{fe.classList.remove('active')},120);if(ea)cancelAnimationFrame(ea);aE()}
+    function aE(){ectx.clearRect(0,0,ec.width,ec.height);let al=!1;ep.forEach(p=>{p.update();if(p.life>0){p.draw();al=!0}});if(al)ea=requestAnimationFrame(aE);else{ec.style.opacity=0;ectx.clearRect(0,0,ec.width,ec.height);ep=[]}}
+    sp.addEventListener('click',()=>{if(td)return;td=1;sp.classList.add('hide');tE();setTimeout(()=>{sp.style.display='none';cancelAnimationFrame(sa);me.classList.add('visible');buildWave();startLoop();autoPlay()},1400)});
+
+    // =============================================
+    //  SHADER BACKGROUND
+    // =============================================
+    const bgCanvas = document.getElementById('bg-shader');
+    const gl = bgCanvas.getContext('webgl') || bgCanvas.getContext('experimental-webgl');
+
+    if (gl) {
+      function resizeGL() {
+        bgCanvas.width = window.innerWidth;
+        bgCanvas.height = window.innerHeight;
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      }
+      resizeGL();
+      window.addEventListener('resize', resizeGL);
+
+      const vsSrc = `
+        attribute vec2 pos;
+        void main() { gl_Position = vec4(pos, 0.0, 1.0); }
+      `;
+
+      const fsSrc = `
+        precision highp float;
+        uniform float time;
+        uniform vec2 resolution;
+
+        void main() {
+          float sum = 0.0;
+          float size = 0.0016;
+          vec2 tpos = gl_FragCoord.xy / resolution.xy - 0.5;
+
+          float scale = 11.0;
+          float basex = -0.5;
+          float basey = 0.0;
+
+          float t = time * 0.15;
+          float x = basex + 0.3*cos(t) + 0.5*cos(t*0.61223);
+          float y = basey + 0.3*sin(t) + 0.5*sin(t*0.61223);
+
+          vec2 position = 2.0 * tpos + vec2(basex, basey);
+
+          float u = 0.317;
+          float v = 0.317;
+
+          for (int j = 0; j < 4; j++) {
+            float px = 0.0, py = 0.0;
+            float x0 = x + u;
+            float y0 = y + v;
+            for (int i = 0; i < 40; i++) {
+              float t2 = px*px - py*py + x0;
+              py = 2.0*px*py + y0;
+              px = t2;
+              float dist = length(vec2(px, py) - position);
+              if (dist > 0.0001) sum += size / dist;
+              else break;
+            }
+            float tmp = u;
+            u = -v;
+            v = tmp;
+          }
+
+          float val = sum;
+          val = clamp(val * 1.2, 0.0, 1.0);
+          val = pow(val, 0.7);
+
+          float bright = val;
+          vec3 color = vec3(bright * 0.9, bright * 0.92, bright);
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      function compileShader(src, type) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        return s;
+      }
+
+      const vs = compileShader(vsSrc, gl.VERTEX_SHADER);
+      const fs = compileShader(fsSrc, gl.FRAGMENT_SHADER);
+      const prog = gl.createProgram();
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      gl.useProgram(prog);
+
+      const verts = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+      const posLoc = gl.getAttribLocation(prog, 'pos');
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+      const uTime = gl.getUniformLocation(prog, 'time');
+      const uRes = gl.getUniformLocation(prog, 'resolution');
+
+      let shaderStart = Date.now();
+
+      function renderShader() {
+        const t = (Date.now() - shaderStart) / 1000;
+        gl.uniform1f(uTime, t);
+        gl.uniform2f(uRes, bgCanvas.width, bgCanvas.height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(renderShader);
+      }
+      renderShader();
+    }
+
+    // =============================================
+    //  COUNTER
+    // =============================================
+    const cntEl = document.getElementById('counterDisplay');
+    let cnt = parseInt(localStorage.getItem('xv')) || 489;
+    function rCnt() {
+      const d = cnt.toString().padStart(3,'0').split('');
+      const sp = cntEl.querySelectorAll('span');
+      sp.forEach((s,i)=>{if(s.textContent!==d[i]){s.textContent=d[i];s.classList.remove('pop');void s.offsetWidth;s.classList.add('pop');setTimeout(()=>s.classList.remove('pop'),300)}});
+      localStorage.setItem('xv', cnt);
+    }
+    cnt++; rCnt();
+
+    // =============================================
+    //  3D TILT
+    // =============================================
+    const card = document.getElementById('card');
+    card.addEventListener('mousemove',(e)=>{const r=card.getBoundingClientRect();const x=(e.clientX-r.left)/r.width-.5;const y=(e.clientY-r.top)/r.height-.5;card.style.transform=`perspective(1200px) rotateY(${x*7}deg) rotateX(${-y*7}deg) translateZ(0)`});
+    card.addEventListener('mouseleave',()=>{card.style.transform='perspective(1200px) rotateY(0) rotateX(0)'});
+
+    // =============================================
+    //  AUDIO — direct playback, synthetic waveform
+    // =============================================
+    const audioEl = document.getElementById('audioPlayer');
+    const playBtn = document.getElementById('playBtn');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const trackName = document.getElementById('trackName');
+    const vizCanvas = document.getElementById('vizCanvas');
+    const vCtx = vizCanvas.getContext('2d');
+
+    let isPlaying = false;
+    let audioCtx = null;
+    let playStartTime = 0;
+    let playOffset = 0;
+    let pauseDuration = 0;
+
+    audioEl.src = 'sound/track.mp3';
+    audioEl.load();
+
+    const WAVE_N = 28;
+    const waveRow = document.getElementById('waveRow');
+    let waveBars = [];
+
+    function buildWave() {
+      waveRow.innerHTML = '';
+      waveBars = [];
+      for (let i = 0; i < WAVE_N; i++) {
+        const b = document.createElement('span');
+        b.className = 'b';
+        waveRow.appendChild(b);
+        waveBars.push(b);
+      }
+    }
+
+    let waveVals = new Float32Array(WAVE_N);
+    let waveVels = new Float32Array(WAVE_N);
+    let vizTime = 0;
+
+    function updateSynth() {
+      vizTime += 0.016;
+
+      if (isPlaying) {
+        for (let i = 0; i < WAVE_N; i++) {
+          const t = vizTime * (1.2 + i * 0.06);
+          const target = 0.15 + 0.6 * (0.5 + 0.5 * Math.sin(t * 2.3 + i * 0.7)) * (0.5 + 0.5 * Math.sin(t * 1.1 + 1.3));
+          target += 0.1 * (0.5 + 0.5 * Math.sin(t * 4.7 + i * 1.1));
+          waveVels[i] += (target - waveVals[i]) * 0.08;
+          waveVels[i] *= 0.85;
+          waveVals[i] += waveVels[i];
+          waveVals[i] = Math.max(0.01, Math.min(1, waveVals[i]));
+        }
+      } else {
+        for (let i = 0; i < WAVE_N; i++) {
+          waveVals[i] *= 0.96;
+          if (waveVals[i] < 0.01) waveVals[i] = 0;
+          waveVels[i] *= 0.9;
+        }
+      }
+
+      for (let i = 0; i < WAVE_N; i++) {
+        const h = 2 + waveVals[i] * 24;
+        waveBars[i].style.height = h + 'px';
+        waveBars[i].className = 'b' + (waveVals[i] > 0.03 ? ' active' : '');
+      }
+
+      if (isPlaying && audioEl.duration && !isNaN(audioEl.duration)) {
+        const cur = audioEl.currentTime;
+        const m = String(Math.floor(cur / 60)).padStart(2,'0');
+        const s = String(Math.floor(cur % 60)).padStart(2,'0');
+        timeDisplay.textContent = m + ':' + s;
+      } else if (!isPlaying) {
+        timeDisplay.textContent = '--:--';
+      }
+    }
+
+    function drawCircularViz() {
+      const p = vizCanvas.parentElement; if(!p) return;
+      const r = p.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = r.width + 10, h = r.height + 10;
+      vizCanvas.width = w * dpr; vizCanvas.height = h * dpr;
+      vizCanvas.style.width = w + 'px'; vizCanvas.style.height = h + 'px';
+      vCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const cx = w/2, cy = h/2;
+      vCtx.clearRect(0, 0, w, h);
+      const bars = 28, iR = 28, oR = 42;
+
+      for (let i = 0; i < bars; i++) {
+        const a = (i / bars) * 6.2832 - 1.57;
+        const idx = Math.floor((i / bars) * WAVE_N);
+        const v = isPlaying ? (waveVals[idx] || 0) : 0;
+        const r1 = iR, r2 = iR + v * (oR - iR);
+        const x1 = cx + Math.cos(a) * r1, y1 = cy + Math.sin(a) * r1;
+        const x2 = cx + Math.cos(a) * r2, y2 = cy + Math.sin(a) * r2;
+        const alpha = 0.1 + v * 0.5;
+        vCtx.beginPath();
+        vCtx.moveTo(x1, y1);
+        vCtx.lineTo(x2, y2);
+        vCtx.strokeStyle = `rgba(255,255,255,${alpha})`;
+        vCtx.lineWidth = 2;
+        vCtx.lineCap = 'round';
+        vCtx.stroke();
+        if (v > 0.08) {
+          vCtx.shadowColor = `rgba(200,200,255,${alpha*0.3})`;
+          vCtx.shadowBlur = 6;
+          vCtx.stroke();
+          vCtx.shadowBlur = 0;
+        }
+      }
+    }
+
+    let loopId;
+
+    function startLoop() {
+      function loop() {
+        updateSynth();
+        drawCircularViz();
+        loopId = requestAnimationFrame(loop);
+      }
+      loop();
+    }
+
+    playBtn.addEventListener('click', async () => {
+      if (isPlaying) {
+        audioEl.pause();
+        playBtn.classList.remove('playing');
+        playBtn.textContent = '▶';
+        isPlaying = false;
+        return;
+      }
+      try {
+        await audioEl.play();
+        playBtn.classList.add('playing');
+        playBtn.textContent = '⏸';
+        isPlaying = true;
+      } catch(e) {
+        trackName.textContent = 'playback failed';
+      }
+    });
+
+    audioEl.addEventListener('ended', () => {
+      playBtn.classList.remove('playing');
+      playBtn.textContent = '▶';
+      isPlaying = false;
+    });
+
+    audioEl.addEventListener('error', () => {
+      trackName.textContent = 'track unavailable';
+    });
+
+    async function autoPlay() {
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        await audioEl.play();
+        playBtn.classList.add('playing');
+        playBtn.classList.remove('attention');
+        playBtn.textContent = '⏸';
+        isPlaying = true;
+      } catch(e) {
+        playBtn.classList.add('attention');
+      }
+    }
+
+    document.addEventListener('pointerdown', () => {
+      if (!isPlaying) autoPlay();
+    }, { once: true });
+
+    document.getElementById('avatarImg').addEventListener('click', function(){
+      this.style.transform='scale(.88)';setTimeout(()=>{this.style.transform=''},200)
+    });
+  </script>
+</body>
+</html>
